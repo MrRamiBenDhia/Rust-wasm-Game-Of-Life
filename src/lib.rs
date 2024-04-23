@@ -11,6 +11,14 @@ pub enum Cell {
     Alive = 1,
 }
 
+impl Cell {
+    fn toggle(&mut self) {
+        *self = match *self {
+            Cell::Dead => Cell::Alive,
+            Cell::Alive => Cell::Dead,
+        };
+    }
+}
 
 #[wasm_bindgen]
 pub struct Universe {
@@ -21,6 +29,24 @@ pub struct Universe {
 
 #[wasm_bindgen]
 impl Universe {
+
+    pub fn toggle_cell(&mut self, row: u32, column: u32) {
+        let idx = self.get_index(row, column);
+        self.cells[idx].toggle();
+    }
+
+    pub fn width(&self) -> u32 {
+        self.width
+    }
+
+    pub fn height(&self) -> u32 {
+        self.height
+    }
+
+    pub fn cells(&self) -> *const Cell {
+        self.cells.as_ptr()
+    }
+
     fn get_index(&self, row: u32, column: u32) -> usize {
         (row * self.width + column) as usize
     }
