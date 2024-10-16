@@ -166,7 +166,9 @@ drawCells();
 // requestAnimationFrame(renderLoop);
 play();
 
-canvas.addEventListener("click", event => {
+let isDragging = false; // Track if dragging is happening
+
+const getMousePosition = (event) => {
     const boundingRect = canvas.getBoundingClientRect();
 
     const scaleX = canvas.width / boundingRect.width;
@@ -178,8 +180,45 @@ canvas.addEventListener("click", event => {
     const row = Math.min(Math.floor(canvasTop / (CELL_SIZE + 1)), height - 1);
     const col = Math.min(Math.floor(canvasLeft / (CELL_SIZE + 1)), width - 1);
 
+    return { row, col };
+};
+
+// Handle single click (as you already have)
+canvas.addEventListener("click", event => {
+    const { row, col } = getMousePosition(event);
     universe.toggle_cell(row, col);
 
     drawGrid();
     drawCells();
+});
+
+// Handle mouse down (start dragging)
+canvas.addEventListener("mousedown", event => {
+    isDragging = true;
+    const { row, col } = getMousePosition(event);
+    universe.toggle_cell(row, col); // Toggle the first cell on mousedown
+
+    drawGrid();
+    drawCells();
+});
+
+// Handle mouse move (dragging)
+canvas.addEventListener("mousemove", event => {
+    if (!isDragging) return; // Only toggle cells while dragging
+
+    const { row, col } = getMousePosition(event);
+    universe.toggle_cell(row, col); // Toggle cells as the mouse moves
+
+    drawGrid();
+    drawCells();
+});
+
+// Handle mouse up (stop dragging)
+canvas.addEventListener("mouseup", () => {
+    isDragging = false; // Stop dragging when mouse is released
+});
+
+// Handle mouse leaving the canvas (stop dragging)
+canvas.addEventListener("mouseleave", () => {
+    isDragging = false; // Also stop dragging if the mouse leaves the canvas
 });
