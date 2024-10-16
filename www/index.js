@@ -165,17 +165,30 @@ drawGrid();
 drawCells();
 // requestAnimationFrame(renderLoop);
 play();
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-let isDragging = false; // Track if dragging is happening
+let isDragging = false; // Track if dragging is happening (for both mouse and touch)
 
-const getMousePosition = (event) => {
+// Helper function to get position from mouse or touch event
+const getPosition = (event) => {
     const boundingRect = canvas.getBoundingClientRect();
 
     const scaleX = canvas.width / boundingRect.width;
     const scaleY = canvas.height / boundingRect.height;
 
-    const canvasLeft = (event.clientX - boundingRect.left) * scaleX;
-    const canvasTop = (event.clientY - boundingRect.top) * scaleY;
+    let clientX, clientY;
+
+    // Check if the event is a touch event or mouse event
+    if (event.touches) {
+        clientX = event.touches[0].clientX;
+        clientY = event.touches[0].clientY;
+    } else {
+        clientX = event.clientX;
+        clientY = event.clientY;
+    }
+
+    const canvasLeft = (clientX - boundingRect.left) * scaleX;
+    const canvasTop = (clientY - boundingRect.top) * scaleY;
 
     const row = Math.min(Math.floor(canvasTop / (CELL_SIZE + 1)), height - 1);
     const col = Math.min(Math.floor(canvasLeft / (CELL_SIZE + 1)), width - 1);
@@ -185,40 +198,48 @@ const getMousePosition = (event) => {
 
 // Handle single click (as you already have)
 canvas.addEventListener("click", event => {
-    const { row, col } = getMousePosition(event);
+    const { row, col } = getPosition(event);
     universe.toggle_cell(row, col);
 
     drawGrid();
     drawCells();
 });
 
-// Handle mouse down (start dragging)
-canvas.addEventListener("mousedown", event => {
+// Handle mouse/touch down (start dragging)
+const handleStart = (event) => {
+    event.preventDefault(); // Prevent touch scrolling
     isDragging = true;
-    const { row, col } = getMousePosition(event);
-    universe.toggle_cell(row, col); // Toggle the first cell on mousedown
+    const { row, col } = getPosition(event);
+    universe.toggle_cell(row, col); // Toggle the first cell on mousedown or touchstart
 
     drawGrid();
     drawCells();
-});
+};
 
-// Handle mouse move (dragging)
-canvas.addEventListener("mousemove", event => {
+// Handle mouse/touch move (dragging)
+const handleMove = (event) => {
     if (!isDragging) return; // Only toggle cells while dragging
 
-    const { row, col } = getMousePosition(event);
-    universe.toggle_cell(row, col); // Toggle cells as the mouse moves
+    const { row, col } = getPosition(event);
+    universe.toggle_cell(row, col); // Toggle cells as the mouse/touch moves
 
     drawGrid();
     drawCells();
-});
+};
 
-// Handle mouse up (stop dragging)
-canvas.addEventListener("mouseup", () => {
-    isDragging = false; // Stop dragging when mouse is released
-});
+// Handle mouse/touch up (stop dragging)
+const handleEnd = () => {
+    isDragging = false; // Stop dragging when mouse/touch is released
+};
 
-// Handle mouse leaving the canvas (stop dragging)
-canvas.addEventListener("mouseleave", () => {
-    isDragging = false; // Also stop dragging if the mouse leaves the canvas
-});
+// Attach event listeners for mouse input
+canvas.addEventListener("mousedown", handleStart);
+canvas.addEventListener("mousemove", handleMove);
+canvas.addEventListener("mouseup", handleEnd);
+canvas.addEventListener("mouseleave", handleEnd);
+
+// Attach event listeners for touch input
+canvas.addEventListener("touchstart", handleStart);
+canvas.addEventListener("touchmove", handleMove);
+canvas.addEventListener("touchend", handleEnd);
+canvas.addEventListener("touchcancel", handleEnd); // Handle when the touch is interrupted
