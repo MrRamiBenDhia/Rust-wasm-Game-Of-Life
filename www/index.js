@@ -1,8 +1,9 @@
-// import * as wasm from "hello-wasm-pack";
+import * as wasm from "hello-wasm-pack";
 
 import { Universe, Cell } from "wasm-game-of-life";
 
-// import { memory } from "wasm-game-of-life/wasm_game_of_life_bg";
+import { memory } from "wasm-game-of-life/wasm_game_of_life_bg";
+
 
 const CELL_SIZE = 5; // px
 const GRID_COLOR = "#CCCCCC";
@@ -20,112 +21,225 @@ const canvas = document.getElementById("game-of-life-canvas");
 canvas.height = (CELL_SIZE + 1) * height + 1;
 canvas.width = (CELL_SIZE + 1) * width + 1;
 
+
+
+
+
+
+const fps = new class {
+    constructor() {
+        this.fps = document.getElementById("fps");
+        this.frames = [];
+        this.lastFrameTimeStamp = performance.now();
+    }
+
+    render() {
+        // Convert the delta time since the last frame render into a measure
+        // of frames per second.
+        const now = performance.now();
+        const delta = now - this.lastFrameTimeStamp;
+        this.lastFrameTimeStamp = now;
+        const fps = 1 / delta * 1000;
+
+        // Save only the latest 100 timings.
+        this.frames.push(fps);
+        if (this.frames.length > 100) {
+            this.frames.shift();
+        }
+
+        // Find the max, min, and mean of our 100 latest timings.
+        let min = Infinity;
+        let max = -Infinity;
+        let sum = 0;
+        for (let i = 0; i < this.frames.length; i++) {
+            sum += this.frames[i];
+            min = Math.min(this.frames[i], min);
+            max = Math.max(this.frames[i], max);
+        }
+        let mean = sum / this.frames.length;
+
+        // Render the statistics.
+        this.fps.textContent = `
+            Frames per Second:
+                    latest = ${Math.round(fps)}
+            avg of last 100 = ${Math.round(mean)}
+            min of last 100 = ${Math.round(min)}
+            max of last 100 = ${Math.round(max)}
+  `.trim();
+    }
+};
+
+
+
+
+
 const ctx = canvas.getContext('2d');
 const drawGrid = () => {
     ctx.beginPath();
     ctx.strokeStyle = GRID_COLOR;
-  
+
     // Vertical lines.
     for (let i = 0; i <= width; i++) {
-      ctx.moveTo(i * (CELL_SIZE + 1) + 1, 0);
-      ctx.lineTo(i * (CELL_SIZE + 1) + 1, (CELL_SIZE + 1) * height + 1);
+        ctx.moveTo(i * (CELL_SIZE + 1) + 1, 0);
+        ctx.lineTo(i * (CELL_SIZE + 1) + 1, (CELL_SIZE + 1) * height + 1);
     }
-  
+
     // Horizontal lines.
     for (let j = 0; j <= height; j++) {
-      ctx.moveTo(0,                           j * (CELL_SIZE + 1) + 1);
-      ctx.lineTo((CELL_SIZE + 1) * width + 1, j * (CELL_SIZE + 1) + 1);
+        ctx.moveTo(0, j * (CELL_SIZE + 1) + 1);
+        ctx.lineTo((CELL_SIZE + 1) * width + 1, j * (CELL_SIZE + 1) + 1);
     }
-  
+
     ctx.stroke();
-  };
-  
+};
+
 const getIndex = (row, column) => {
     return row * width + column;
-  };
-  
-  const drawCells = () => {
+};
+
+const drawCells = () => {
     const cellsPtr = universe.cells();
     const cells = new Uint8Array(memory.buffer, cellsPtr, width * height);
-  
-    ctx.beginPath();
-  
-    for (let row = 0; row < height; row++) {
-      for (let col = 0; col < width; col++) {
-        const idx = getIndex(row, col);
-  
-        ctx.fillStyle = cells[idx] === Cell.Dead
-          ? DEAD_COLOR
-          : ALIVE_COLOR;
-  
-        ctx.fillRect(
-          col * (CELL_SIZE + 1) + 1,
-          row * (CELL_SIZE + 1) + 1,
-          CELL_SIZE,
-          CELL_SIZE
-        );
-      }
-    }
-  
-    ctx.stroke();
-  };
 
-  let animationId = null;
+    ctx.beginPath();
+
+    for (let row = 0; row < height; row++) {
+        for (let col = 0; col < width; col++) {
+            const idx = getIndex(row, col);
+
+            ctx.fillStyle = cells[idx] === Cell.Dead
+                ? DEAD_COLOR
+                : ALIVE_COLOR;
+
+            ctx.fillRect(
+                col * (CELL_SIZE + 1) + 1,
+                row * (CELL_SIZE + 1) + 1,
+                CELL_SIZE,
+                CELL_SIZE
+            );
+        }
+    }
+
+    ctx.stroke();
+};
+
+let animationId = null;
 
 const renderLoop = () => {
-  universe.tick();
+    fps.render(); //new
 
-  drawGrid();
-  drawCells();
+    universe.tick();
 
-  animationId = requestAnimationFrame(renderLoop);
+    drawGrid();
+    drawCells();
+
+    animationId = requestAnimationFrame(renderLoop);
 };
 
 const isPaused = () => {
     return animationId === null;
-  };
+};
 
-  const playPauseButton = document.getElementById("play-pause");
+const playPauseButton = document.getElementById("play-pause");
 
 const play = () => {
-  playPauseButton.textContent = "⏸";
-  renderLoop();
+    playPauseButton.textContent = "⏸";
+    renderLoop();
 };
 
 const pause = () => {
-  playPauseButton.textContent = "▶️";
-  cancelAnimationFrame(animationId);
-  animationId = null;
+    playPauseButton.textContent = "▶️";
+    cancelAnimationFrame(animationId);
+    animationId = null;
 };
 
 playPauseButton.addEventListener("click", event => {
-  if (isPaused()) {
-    play();
-  } else {
-    pause();
-  }
+    if (isPaused()) {
+        play();
+    } else {
+        pause();
+    }
 });
 
 drawGrid();
 drawCells();
 // requestAnimationFrame(renderLoop);
 play();
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-canvas.addEventListener("click", event => {
+let isDragging = false; // Track if dragging is happening (for both mouse and touch)
+
+// Helper function to get position from mouse or touch event
+const getPosition = (event) => {
     const boundingRect = canvas.getBoundingClientRect();
-  
+
     const scaleX = canvas.width / boundingRect.width;
     const scaleY = canvas.height / boundingRect.height;
-  
-    const canvasLeft = (event.clientX - boundingRect.left) * scaleX;
-    const canvasTop = (event.clientY - boundingRect.top) * scaleY;
-  
+
+    let clientX, clientY;
+
+    // Check if the event is a touch event or mouse event
+    if (event.touches) {
+        clientX = event.touches[0].clientX;
+        clientY = event.touches[0].clientY;
+    } else {
+        clientX = event.clientX;
+        clientY = event.clientY;
+    }
+
+    const canvasLeft = (clientX - boundingRect.left) * scaleX;
+    const canvasTop = (clientY - boundingRect.top) * scaleY;
+
     const row = Math.min(Math.floor(canvasTop / (CELL_SIZE + 1)), height - 1);
     const col = Math.min(Math.floor(canvasLeft / (CELL_SIZE + 1)), width - 1);
-  
+
+    return { row, col };
+};
+
+// Handle single click (as you already have)
+canvas.addEventListener("click", event => {
+    const { row, col } = getPosition(event);
     universe.toggle_cell(row, col);
-  
+
     drawGrid();
     drawCells();
-  });
-  
+});
+
+// Handle mouse/touch down (start dragging)
+const handleStart = (event) => {
+    event.preventDefault(); // Prevent touch scrolling
+    isDragging = true;
+    const { row, col } = getPosition(event);
+    universe.toggle_cell(row, col); // Toggle the first cell on mousedown or touchstart
+
+    drawGrid();
+    drawCells();
+};
+
+// Handle mouse/touch move (dragging)
+const handleMove = (event) => {
+    if (!isDragging) return; // Only toggle cells while dragging
+
+    const { row, col } = getPosition(event);
+    universe.toggle_cell(row, col); // Toggle cells as the mouse/touch moves
+
+    drawGrid();
+    drawCells();
+};
+
+// Handle mouse/touch up (stop dragging)
+const handleEnd = () => {
+    isDragging = false; // Stop dragging when mouse/touch is released
+};
+
+// Attach event listeners for mouse input
+canvas.addEventListener("mousedown", handleStart);
+canvas.addEventListener("mousemove", handleMove);
+canvas.addEventListener("mouseup", handleEnd);
+canvas.addEventListener("mouseleave", handleEnd);
+
+// Attach event listeners for touch input
+canvas.addEventListener("touchstart", handleStart);
+canvas.addEventListener("touchmove", handleMove);
+canvas.addEventListener("touchend", handleEnd);
+canvas.addEventListener("touchcancel", handleEnd); // Handle when the touch is interrupted
