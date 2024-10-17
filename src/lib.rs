@@ -18,6 +18,9 @@ impl Cell {
             Cell::Alive => Cell::Dead,
         };
     }
+    fn setLive(&mut self) {
+        *self = Cell::Alive
+    }
 }
 
 impl Universe {

@@ -1,30 +1,23 @@
 import * as wasm from "hello-wasm-pack";
-
 import { Universe, Cell } from "wasm-game-of-life";
-
 import { memory } from "wasm-game-of-life/wasm_game_of_life_bg";
 
+const CELL_SIZE = 10; // px
 
-const CELL_SIZE = 5; // px
 const GRID_COLOR = "#CCCCCC";
 const DEAD_COLOR = "#FFFFFF";
 const ALIVE_COLOR = "#000000";
 
 // Construct the universe, and get its width and height.
-const universe = Universe.new();
+const universe = Universe.new(64, 64);
+
 const width = universe.width();
 const height = universe.height();
 
-// Give the canvas room for all of our cells and a 1px border
-// around each of them.
+// Give the canvas room for all of our cells and a 1px border around each of them.
 const canvas = document.getElementById("game-of-life-canvas");
 canvas.height = (CELL_SIZE + 1) * height + 1;
 canvas.width = (CELL_SIZE + 1) * width + 1;
-
-
-
-
-
 
 const fps = new class {
     constructor() {
@@ -34,8 +27,7 @@ const fps = new class {
     }
 
     render() {
-        // Convert the delta time since the last frame render into a measure
-        // of frames per second.
+        // Convert the delta time since the last frame render into a measure of frames per second.
         const now = performance.now();
         const delta = now - this.lastFrameTimeStamp;
         this.lastFrameTimeStamp = now;
@@ -65,15 +57,11 @@ const fps = new class {
             avg of last 100 = ${Math.round(mean)}
             min of last 100 = ${Math.round(min)}
             max of last 100 = ${Math.round(max)}
-  `.trim();
+        `.trim();
     }
 };
 
-
-
-
-
-const ctx = canvas.getContext('2d');
+const ctx = canvas.getContext("2d");
 const drawGrid = () => {
     ctx.beginPath();
     ctx.strokeStyle = GRID_COLOR;
@@ -107,9 +95,7 @@ const drawCells = () => {
         for (let col = 0; col < width; col++) {
             const idx = getIndex(row, col);
 
-            ctx.fillStyle = cells[idx] === Cell.Dead
-                ? DEAD_COLOR
-                : ALIVE_COLOR;
+            ctx.fillStyle = cells[idx] === Cell.Dead ? DEAD_COLOR : ALIVE_COLOR;
 
             ctx.fillRect(
                 col * (CELL_SIZE + 1) + 1,
@@ -124,16 +110,23 @@ const drawCells = () => {
 };
 
 let animationId = null;
+let speed = 100; // default speed (100ms between ticks)
+
+// Update the speed based on the slider
+const speedInput = document.getElementById("tick-speed");
+speedInput.addEventListener("input", (event) => {
+    speed = Number(event.target.value);
+});
 
 const renderLoop = () => {
-    fps.render(); //new
+    fps.render(); // new
 
     universe.tick();
 
     drawGrid();
     drawCells();
 
-    animationId = requestAnimationFrame(renderLoop);
+    animationId = setTimeout(() => requestAnimationFrame(renderLoop), speed);
 };
 
 const isPaused = () => {
@@ -149,11 +142,11 @@ const play = () => {
 
 const pause = () => {
     playPauseButton.textContent = "▶️";
-    cancelAnimationFrame(animationId);
+    clearTimeout(animationId);
     animationId = null;
 };
 
-playPauseButton.addEventListener("click", event => {
+playPauseButton.addEventListener("click", () => {
     if (isPaused()) {
         play();
     } else {
@@ -163,22 +156,27 @@ playPauseButton.addEventListener("click", event => {
 
 drawGrid();
 drawCells();
-// requestAnimationFrame(renderLoop);
-play();
-//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+play(); // Start the game loop
 
-let isDragging = false; // Track if dragging is happening (for both mouse and touch)
+// Handle single click (as you already have)
+canvas.addEventListener("click", (event) => {
+    const { row, col } = getPosition(event);
+    universe.toggle_cell(row, col);
 
-// Helper function to get position from mouse or touch event
+    drawGrid();
+    drawCells();
+});
+
+// Add dragging functionality (similar to your existing code)
+let isDragging = false;
+
 const getPosition = (event) => {
     const boundingRect = canvas.getBoundingClientRect();
-
     const scaleX = canvas.width / boundingRect.width;
     const scaleY = canvas.height / boundingRect.height;
 
     let clientX, clientY;
 
-    // Check if the event is a touch event or mouse event
     if (event.touches) {
         clientX = event.touches[0].clientX;
         clientY = event.touches[0].clientY;
@@ -196,50 +194,35 @@ const getPosition = (event) => {
     return { row, col };
 };
 
-// Handle single click (as you already have)
-canvas.addEventListener("click", event => {
+const handleStart = (event) => {
+    event.preventDefault();
+    isDragging = true;
     const { row, col } = getPosition(event);
     universe.toggle_cell(row, col);
 
     drawGrid();
     drawCells();
-});
-
-// Handle mouse/touch down (start dragging)
-const handleStart = (event) => {
-    event.preventDefault(); // Prevent touch scrolling
-    isDragging = true;
-    const { row, col } = getPosition(event);
-    universe.toggle_cell(row, col); // Toggle the first cell on mousedown or touchstart
-
-    drawGrid();
-    drawCells();
 };
 
-// Handle mouse/touch move (dragging)
 const handleMove = (event) => {
-    if (!isDragging) return; // Only toggle cells while dragging
-
+    if (!isDragging) return;
     const { row, col } = getPosition(event);
-    universe.toggle_cell(row, col); // Toggle cells as the mouse/touch moves
+    universe.toggle_cell(row, col);
 
     drawGrid();
     drawCells();
 };
 
-// Handle mouse/touch up (stop dragging)
 const handleEnd = () => {
-    isDragging = false; // Stop dragging when mouse/touch is released
+    isDragging = false;
 };
 
-// Attach event listeners for mouse input
 canvas.addEventListener("mousedown", handleStart);
 canvas.addEventListener("mousemove", handleMove);
 canvas.addEventListener("mouseup", handleEnd);
 canvas.addEventListener("mouseleave", handleEnd);
 
-// Attach event listeners for touch input
 canvas.addEventListener("touchstart", handleStart);
 canvas.addEventListener("touchmove", handleMove);
 canvas.addEventListener("touchend", handleEnd);
-canvas.addEventListener("touchcancel", handleEnd); // Handle when the touch is interrupted
+canvas.addEventListener("touchcancel", handleEnd);
