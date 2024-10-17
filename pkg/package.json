@@ -1,5 +1,6 @@
 {
   "name": "wasm-game-of-life",
+  "type": "module",
   "collaborators": [
     "Mr Rami <mr.rami.bendhia@gmail.com>"
   ],
@@ -10,7 +11,7 @@
     "wasm_game_of_life_bg.js",
     "wasm_game_of_life.d.ts"
   ],
-  "module": "wasm_game_of_life.js",
+  "main": "wasm_game_of_life.js",
   "types": "wasm_game_of_life.d.ts",
   "sideEffects": [
     "./wasm_game_of_life.js",
